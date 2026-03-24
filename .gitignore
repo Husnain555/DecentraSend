@@ -23,6 +23,11 @@ npm-debug.log*
 
 # Build output
 dist/
+.next/
+out/
 
 # Bun
 bun.lockb
+
+# Next.js
+next-env.d.ts

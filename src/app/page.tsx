@@ -1,65 +1,119 @@
-import Image from "next/image";
+'use client'
+
+import { useEffect, useState, useCallback, useRef } from 'react'
+import { toast } from 'sonner'
+import { Header } from '@/components/header'
+import { SetupSection } from '@/components/setup-section'
+import { UploadSection } from '@/components/upload-section'
+import { HistorySection } from '@/components/history-section'
+import { DownloadSection } from '@/components/download-section'
+import { HowItWorks } from '@/components/how-it-works'
+import { Footer } from '@/components/footer'
+
+export interface HistoryEntry {
+  cid: string
+  fileName: string
+  fileSize: number
+  encryptedSize: number
+  shareLink: string
+  uploadedAt: string
+}
+
+const MAX_HISTORY = 50
+const STORAGE_KEY = 'upload_history'
+const API_KEY_STORAGE = 'lighthouse_api_key'
 
 export default function Home() {
+  const [apiKey, setApiKey] = useState<string | null>(null)
+  const [downloadInfo, setDownloadInfo] = useState<{ cid: string; key: string } | null>(null)
+  const [history, setHistory] = useState<HistoryEntry[]>([])
+  const initialized = useRef(false)
+
+  useEffect(() => {
+    if (initialized.current) return
+    initialized.current = true
+
+    const stored = localStorage.getItem(API_KEY_STORAGE)
+    if (stored) setApiKey(stored)
+
+    const hist = localStorage.getItem(STORAGE_KEY)
+    if (hist) {
+      try { setHistory(JSON.parse(hist)) } catch { /* ignore */ }
+    }
+
+    const hash = window.location.hash
+    const match = hash.match(/^#\/d\/([^/]+)\/(.+)$/)
+    if (match) {
+      setDownloadInfo({ cid: match[1], key: match[2] })
+    }
+  }, [])
+
+  const handleSaveKey = useCallback((key: string) => {
+    if (key.trim().length < 10) {
+      toast.error('API key looks too short. Please check your Lighthouse token.')
+      return
+    }
+    localStorage.setItem(API_KEY_STORAGE, key.trim())
+    setApiKey(key.trim())
+    toast.success('API key saved')
+  }, [])
+
+  const handleChangeKey = useCallback(() => {
+    localStorage.removeItem(API_KEY_STORAGE)
+    setApiKey(null)
+  }, [])
+
+  const addToHistory = useCallback((entry: HistoryEntry) => {
+    setHistory((prev) => {
+      const next = [entry, ...prev].slice(0, MAX_HISTORY)
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(next))
+      return next
+    })
+  }, [])
+
+  const removeFromHistory = useCallback((cid: string) => {
+    setHistory((prev) => {
+      const next = prev.filter((h) => h.cid !== cid)
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(next))
+      return next
+    })
+  }, [])
+
+  if (downloadInfo) {
+    return (
+      <div className="min-h-screen flex flex-col">
+        <Header />
+        <main className="flex-1 flex items-center justify-center px-4 py-12">
+          <div className="w-full max-w-lg">
+            <DownloadSection cid={downloadInfo.cid} encryptionKey={downloadInfo.key} />
+          </div>
+        </main>
+        <Footer />
+      </div>
+    )
+  }
+
   return (
-    <div className="flex flex-col flex-1 items-center justify-center bg-zinc-50 font-sans dark:bg-black">
-      <main className="flex flex-1 w-full max-w-3xl flex-col items-center justify-between py-32 px-16 bg-white dark:bg-black sm:items-start">
-        <Image
-          className="dark:invert"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={100}
-          height={20}
-          priority
-        />
-        <div className="flex flex-col items-center gap-6 text-center sm:items-start sm:text-left">
-          <h1 className="max-w-xs text-3xl font-semibold leading-10 tracking-tight text-black dark:text-zinc-50">
-            To get started, edit the page.tsx file.
-          </h1>
-          <p className="max-w-md text-lg leading-8 text-zinc-600 dark:text-zinc-400">
-            Looking for a starting point or more instructions? Head over to{" "}
-            <a
-              href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Templates
-            </a>{" "}
-            or the{" "}
-            <a
-              href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Learning
-            </a>{" "}
-            center.
-          </p>
-        </div>
-        <div className="flex flex-col gap-4 text-base font-medium sm:flex-row">
-          <a
-            className="flex h-12 w-full items-center justify-center gap-2 rounded-full bg-foreground px-5 text-background transition-colors hover:bg-[#383838] dark:hover:bg-[#ccc] md:w-[158px]"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="dark:invert"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={16}
-              height={16}
-            />
-            Deploy Now
-          </a>
-          <a
-            className="flex h-12 w-full items-center justify-center rounded-full border border-solid border-black/[.08] px-5 transition-colors hover:border-transparent hover:bg-black/[.04] dark:border-white/[.145] dark:hover:bg-[#1a1a1a] md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Documentation
-          </a>
+    <div className="min-h-screen flex flex-col">
+      <Header />
+      <main className="flex-1 px-4 py-12">
+        <div className="mx-auto max-w-2xl space-y-8">
+          {!apiKey ? (
+            <SetupSection onSave={handleSaveKey} />
+          ) : (
+            <>
+              <UploadSection apiKey={apiKey} onUpload={addToHistory} onChangeKey={handleChangeKey} />
+              <HistorySection
+                history={history}
+                apiKey={apiKey}
+                onDelete={removeFromHistory}
+              />
+            </>
+          )}
+          <HowItWorks />
         </div>
       </main>
+      <Footer />
     </div>
-  );
+  )
 }

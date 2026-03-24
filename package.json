@@ -1,0 +1,13 @@
+{
+  "name": "decentra-send",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "serve public -s",
+    "start": "serve public -s"
+  },
+  "dependencies": {
+    "serve": "^14.2.6"
+  }
+}
